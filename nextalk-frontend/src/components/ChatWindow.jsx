@@ -3,6 +3,8 @@ import api from "../api/axios";
 import MessageInput from "./MessageInput";
 import ContactInfoModal from "./ContactInfoModal";
 import { MoreVertical } from "lucide-react";
+import SockJS from "sockjs-client";
+import { Client } from "@stomp/stompjs";
 
 export default function ChatWindow({
   selectedChat,
@@ -14,6 +16,7 @@ export default function ChatWindow({
   const [activeMenu, setActiveMenu] = useState(null);
 
   const bottomRef = useRef(null);
+  const stompClientRef = useRef(null);
 
   const scrollToBottom = () => {
     bottomRef.current?.scrollIntoView({
@@ -55,8 +58,55 @@ export default function ChatWindow({
     }
   }, [messages]);
 
+  useEffect(() => {
+    if (!selectedChat) return;
+
+    const client = new Client({
+      webSocketFactory: () =>
+        new SockJS("http://localhost:8080/ws"),
+
+      reconnectDelay: 5000,
+
+      onConnect: () => {
+        client.subscribe(
+          `/topic/chat/${selectedChat.chatId}`,
+          (message) => {
+            const newMessage = JSON.parse(message.body);
+
+            setMessages((prev) => {
+              const exists = prev.some(
+                (msg) => msg.id === newMessage.id
+              );
+
+              if (exists) return prev;
+
+              return [...prev, newMessage];
+            });
+          }
+        );
+      },
+
+      onStompError: (frame) => {
+        console.error("Broker error:", frame);
+      },
+
+      onWebSocketError: (error) => {
+        console.error("WebSocket error:", error);
+      },
+    });
+
+    client.activate();
+    stompClientRef.current = client;
+
+    return () => {
+      if (stompClientRef.current) {
+        stompClientRef.current.deactivate();
+      }
+    };
+  }, [selectedChat]);
+
   const handleMessageSent = () => {
-    fetchMessages();
+    // realtime updates messages automatically
   };
 
   const handleDeleteForMe = async (messageId) => {

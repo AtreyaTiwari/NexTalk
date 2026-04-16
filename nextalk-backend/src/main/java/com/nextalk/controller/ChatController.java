@@ -9,6 +9,7 @@ import com.nextalk.service.ChatService;
 import com.nextalk.util.CurrentUserUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,6 +22,7 @@ public class ChatController {
     private final ChatService chatService;
     private final UserRepository userRepository;
     private final CurrentUserUtil currentUserUtil;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @PostMapping("/private")
     public ChatResponse createPrivateChat(
@@ -29,8 +31,7 @@ public class ChatController {
         String currentUserMobile = currentUserUtil.getCurrentUserMobile();
 
         User currentUser = userRepository.findByMobile(currentUserMobile)
-                .orElseThrow(() ->
-                        new RuntimeException("Current user not found"));
+                .orElseThrow(() -> new RuntimeException("Current user not found"));
 
         User otherUser = userRepository.findByMobile(request.getMobile())
                 .orElseThrow(() ->
@@ -57,8 +58,7 @@ public class ChatController {
         String mobile = currentUserUtil.getCurrentUserMobile();
 
         User currentUser = userRepository.findByMobile(mobile)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         return chatService.getUserChats(currentUser.getId());
     }
@@ -70,8 +70,7 @@ public class ChatController {
         String mobile = currentUserUtil.getCurrentUserMobile();
 
         User currentUser = userRepository.findByMobile(mobile)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         Message message = chatService.sendMessage(
                 currentUser.getId(),
@@ -79,7 +78,7 @@ public class ChatController {
                 request.getContent()
         );
 
-        return MessageResponse.builder()
+        MessageResponse response = MessageResponse.builder()
                 .id(message.getId())
                 .content(message.getContent())
                 .createdAt(message.getCreatedAt())
@@ -87,6 +86,13 @@ public class ChatController {
                 .senderId(message.getSender().getId())
                 .senderName(message.getSender().getName())
                 .build();
+
+        messagingTemplate.convertAndSend(
+                "/topic/chat/" + request.getChatId(),
+                response
+        );
+
+        return response;
     }
 
     @GetMapping("/{chatId}/messages")
@@ -96,8 +102,7 @@ public class ChatController {
         String mobile = currentUserUtil.getCurrentUserMobile();
 
         User currentUser = userRepository.findByMobile(mobile)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         return chatService.getMessages(
                 currentUser.getId(),
@@ -106,50 +111,35 @@ public class ChatController {
     }
 
     @DeleteMapping("/{chatId}")
-    public void deleteChatForMe(
-            @PathVariable Long chatId) {
+    public void deleteChatForMe(@PathVariable Long chatId) {
 
         String mobile = currentUserUtil.getCurrentUserMobile();
 
         User currentUser = userRepository.findByMobile(mobile)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        chatService.deleteChatForMe(
-                currentUser.getId(),
-                chatId
-        );
+        chatService.deleteChatForMe(currentUser.getId(), chatId);
     }
 
     @DeleteMapping("/message/{messageId}/me")
-    public void deleteMessageForMe(
-            @PathVariable Long messageId) {
+    public void deleteMessageForMe(@PathVariable Long messageId) {
 
         String mobile = currentUserUtil.getCurrentUserMobile();
 
         User currentUser = userRepository.findByMobile(mobile)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        chatService.deleteMessageForMe(
-                currentUser.getId(),
-                messageId
-        );
+        chatService.deleteMessageForMe(currentUser.getId(), messageId);
     }
 
     @DeleteMapping("/message/{messageId}/everyone")
-    public void deleteMessageForEveryone(
-            @PathVariable Long messageId) {
+    public void deleteMessageForEveryone(@PathVariable Long messageId) {
 
         String mobile = currentUserUtil.getCurrentUserMobile();
 
         User currentUser = userRepository.findByMobile(mobile)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        chatService.deleteMessageForEveryone(
-                currentUser.getId(),
-                messageId
-        );
+        chatService.deleteMessageForEveryone(currentUser.getId(), messageId);
     }
 }

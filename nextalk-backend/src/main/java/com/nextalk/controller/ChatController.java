@@ -142,4 +142,12 @@ public class ChatController {
 
         chatService.deleteMessageForEveryone(currentUser.getId(), messageId);
     }
+    @PostMapping("/typing")
+    public void typing(@RequestBody TypingMessage request) {
+
+        messagingTemplate.convertAndSend(
+                "/topic/chat/" + request.getChatId() + "/typing",
+                request
+        );
+    }
 }

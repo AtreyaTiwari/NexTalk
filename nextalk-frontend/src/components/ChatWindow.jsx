@@ -9,11 +9,14 @@ import { Client } from "@stomp/stompjs";
 export default function ChatWindow({
   selectedChat,
   onChatDeleted,
+  isTyping,
 }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [openContact, setOpenContact] = useState(false);
-  const [activeMenu, setActiveMenu] = useState(null);
+  const [openContact, setOpenContact] =
+    useState(false);
+  const [activeMenu, setActiveMenu] =
+    useState(null);
 
   const bottomRef = useRef(null);
   const stompClientRef = useRef(null);
@@ -42,7 +45,10 @@ export default function ChatWindow({
       );
       setMessages(response.data);
     } catch (error) {
-      console.error("Failed to load messages", error);
+      console.error(
+        "Failed to load messages",
+        error
+      );
     } finally {
       setLoading(false);
     }
@@ -53,10 +59,8 @@ export default function ChatWindow({
   }, [selectedChat]);
 
   useEffect(() => {
-    if (messages.length > 0) {
-      scrollToBottom();
-    }
-  }, [messages]);
+    scrollToBottom();
+  }, [messages, isTyping]);
 
   useEffect(() => {
     if (!selectedChat) return;
@@ -71,11 +75,14 @@ export default function ChatWindow({
         client.subscribe(
           `/topic/chat/${selectedChat.chatId}`,
           (message) => {
-            const newMessage = JSON.parse(message.body);
+            const newMessage = JSON.parse(
+              message.body
+            );
 
             setMessages((prev) => {
               const exists = prev.some(
-                (msg) => msg.id === newMessage.id
+                (msg) =>
+                  msg.id === newMessage.id
               );
 
               if (exists) return prev;
@@ -84,14 +91,6 @@ export default function ChatWindow({
             });
           }
         );
-      },
-
-      onStompError: (frame) => {
-        console.error("Broker error:", frame);
-      },
-
-      onWebSocketError: (error) => {
-        console.error("WebSocket error:", error);
       },
     });
 
@@ -105,21 +104,25 @@ export default function ChatWindow({
     };
   }, [selectedChat]);
 
-  const handleMessageSent = () => {
-    // realtime updates messages automatically
-  };
+  const handleMessageSent = () => {};
 
-  const handleDeleteForMe = async (messageId) => {
+  const handleDeleteForMe = async (
+    messageId
+  ) => {
     try {
-      await api.delete(`/chat/message/${messageId}/me`);
+      await api.delete(
+        `/chat/message/${messageId}/me`
+      );
       setActiveMenu(null);
       fetchMessages();
     } catch (error) {
-      console.error("Delete failed", error);
+      console.error(error);
     }
   };
 
-  const handleDeleteForEveryone = async (messageId) => {
+  const handleDeleteForEveryone = async (
+    messageId
+  ) => {
     try {
       await api.delete(
         `/chat/message/${messageId}/everyone`
@@ -127,7 +130,7 @@ export default function ChatWindow({
       setActiveMenu(null);
       fetchMessages();
     } catch (error) {
-      console.error("Delete failed", error);
+      console.error(error);
     }
   };
 
@@ -150,6 +153,7 @@ export default function ChatWindow({
             <h2 className="font-semibold text-lg text-white">
               {selectedChat.otherUserName}
             </h2>
+
             <p className="text-sm text-gray-400">
               {selectedChat.otherUserMobile}
             </p>
@@ -158,7 +162,9 @@ export default function ChatWindow({
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {loading ? (
-            <p className="text-gray-400 text-sm">Loading...</p>
+            <p className="text-gray-400 text-sm">
+              Loading...
+            </p>
           ) : messages.length === 0 ? (
             <p className="text-gray-400 text-sm">
               No messages yet
@@ -167,13 +173,16 @@ export default function ChatWindow({
             <>
               {messages.map((msg) => {
                 const isMe =
-                  msg.senderName !== selectedChat.otherUserName;
+                  msg.senderName !==
+                  selectedChat.otherUserName;
 
                 return (
                   <div
                     key={msg.id}
                     className={`flex ${
-                      isMe ? "justify-end" : "justify-start"
+                      isMe
+                        ? "justify-end"
+                        : "justify-start"
                     }`}
                   >
                     <div className="max-w-[70%] relative">
@@ -182,7 +191,8 @@ export default function ChatWindow({
                           <button
                             onClick={() =>
                               setActiveMenu(
-                                activeMenu === msg.id
+                                activeMenu ===
+                                  msg.id
                                   ? null
                                   : msg.id
                               )
@@ -211,7 +221,9 @@ export default function ChatWindow({
                                 : "text-left"
                             }`}
                           >
-                            {formatTime(msg.createdAt)}
+                            {formatTime(
+                              msg.createdAt
+                            )}
                           </p>
                         </div>
 
@@ -219,7 +231,8 @@ export default function ChatWindow({
                           <button
                             onClick={() =>
                               setActiveMenu(
-                                activeMenu === msg.id
+                                activeMenu ===
+                                  msg.id
                                   ? null
                                   : msg.id
                               )
@@ -232,16 +245,12 @@ export default function ChatWindow({
                       </div>
 
                       {activeMenu === msg.id && (
-                        <div
-                          className={`absolute top-8 z-20 w-44 rounded-2xl border border-white/10 bg-[#111] shadow-xl overflow-hidden ${
-                            isMe
-                              ? "right-0"
-                              : "left-0"
-                          }`}
-                        >
+                        <div className={`absolute top-8 z-20 w-44 rounded-2xl border border-white/10 bg-[#111] shadow-xl overflow-hidden ${isMe ? "right-0" : "left-0"}`}>
                           <button
                             onClick={() =>
-                              handleDeleteForMe(msg.id)
+                              handleDeleteForMe(
+                                msg.id
+                              )
                             }
                             className="w-full text-left px-4 py-3 text-sm hover:bg-white/5"
                           >
@@ -266,6 +275,16 @@ export default function ChatWindow({
                   </div>
                 );
               })}
+
+              {isTyping && (
+                <div className="flex justify-start">
+                  <div className="px-4 py-3 rounded-2xl bg-white text-black flex gap-1 items-center">
+                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></span>
+                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:0.15s]"></span>
+                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:0.3s]"></span>
+                  </div>
+                </div>
+              )}
 
               <div ref={bottomRef} />
             </>

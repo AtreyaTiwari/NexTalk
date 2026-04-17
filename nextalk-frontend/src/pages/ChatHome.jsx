@@ -1,22 +1,34 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../api/axios";
 import Sidebar from "../components/Sidebar";
 import ChatWindow from "../components/ChatWindow";
+import SockJS from "sockjs-client";
+import { Client } from "@stomp/stompjs";
 
 export default function ChatHome({ onLogout }) {
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedChat, setSelectedChat] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [typingMap, setTypingMap] = useState({});
+  const [me, setMe] = useState(null);
+
+  const stompClientRef = useRef(null);
+  const typingTimersRef = useRef({});
 
   const fetchChats = async () => {
     setLoading(true);
 
     try {
-      const response = await api.get("/chat");
-      setChats(response.data);
+      const [chatRes, meRes] = await Promise.all([
+        api.get("/chat"),
+        api.get("/auth/me"),
+      ]);
+
+      setChats(chatRes.data);
+      setMe(meRes.data);
     } catch (error) {
-      console.error("Failed to load chats", error);
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -25,6 +37,60 @@ export default function ChatHome({ onLogout }) {
   useEffect(() => {
     fetchChats();
   }, []);
+
+  useEffect(() => {
+    if (chats.length === 0 || !me) return;
+
+    const client = new Client({
+      webSocketFactory: () =>
+        new SockJS("http://localhost:8080/ws"),
+
+      reconnectDelay: 5000,
+
+      onConnect: () => {
+        chats.forEach((chat) => {
+          client.subscribe(
+            `/topic/chat/${chat.chatId}/typing`,
+            (message) => {
+              const data = JSON.parse(message.body);
+
+              if (data.senderId === me.id) return;
+
+              setTypingMap((prev) => ({
+                ...prev,
+                [chat.chatId]: true,
+              }));
+
+              clearTimeout(
+                typingTimersRef.current[chat.chatId]
+              );
+
+              typingTimersRef.current[chat.chatId] =
+                setTimeout(() => {
+                  setTypingMap((prev) => ({
+                    ...prev,
+                    [chat.chatId]: false,
+                  }));
+                }, 1000);
+            }
+          );
+        });
+      },
+    });
+
+    client.activate();
+    stompClientRef.current = client;
+
+    return () => {
+      Object.values(
+        typingTimersRef.current
+      ).forEach(clearTimeout);
+
+      if (stompClientRef.current) {
+        stompClientRef.current.deactivate();
+      }
+    };
+  }, [chats, me]);
 
   const handleChatDeleted = (chatId) => {
     const updatedChats = chats.filter(
@@ -44,7 +110,9 @@ export default function ChatHome({ onLogout }) {
     if (!keyword) return chats;
 
     return chats.filter((chat) =>
-      chat.otherUserName?.toLowerCase().includes(keyword) ||
+      chat.otherUserName
+        ?.toLowerCase()
+        .includes(keyword) ||
       chat.otherUserMobile?.includes(keyword)
     );
   }, [chats, searchTerm]);
@@ -60,11 +128,17 @@ export default function ChatHome({ onLogout }) {
         onSelectChat={setSelectedChat}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
+        typingMap={typingMap}
       />
 
       <ChatWindow
         selectedChat={selectedChat}
         onChatDeleted={handleChatDeleted}
+        isTyping={
+          selectedChat
+            ? typingMap[selectedChat.chatId]
+            : false
+        }
       />
     </div>
   );

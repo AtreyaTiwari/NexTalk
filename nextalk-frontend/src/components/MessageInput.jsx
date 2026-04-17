@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Send } from "lucide-react";
 import api from "../api/axios";
 
@@ -8,6 +8,50 @@ export default function MessageInput({
 }) {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
+  const [me, setMe] = useState(null);
+
+  const canEmitRef = useRef(true);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    const loadMe = async () => {
+      try {
+        const res = await api.get("/auth/me");
+        setMe(res.data);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    loadMe();
+
+    return () => clearTimeout(timerRef.current);
+  }, []);
+
+  const emitTyping = async () => {
+    if (!me || !canEmitRef.current) return;
+
+    canEmitRef.current = false;
+
+    try {
+      await api.post("/chat/typing", {
+        chatId,
+        senderId: me.id,
+        senderName: me.name,
+      });
+    } catch (error) {
+      console.error(error);
+    }
+
+    timerRef.current = setTimeout(() => {
+      canEmitRef.current = true;
+    }, 700);
+  };
+
+  const handleChange = (e) => {
+    setContent(e.target.value);
+    emitTyping();
+  };
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -25,7 +69,7 @@ export default function MessageInput({
       setContent("");
       onMessageSent();
     } catch (error) {
-      console.error("Failed to send message", error);
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -40,7 +84,7 @@ export default function MessageInput({
         type="text"
         placeholder="Type a message..."
         value={content}
-        onChange={(e) => setContent(e.target.value)}
+        onChange={handleChange}
         className="flex-1 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 outline-none text-white"
       />
 

@@ -2,13 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import api from "../api/axios";
 import MessageInput from "./MessageInput";
 import ContactInfoModal from "./ContactInfoModal";
-import { MoreVertical, CheckCheck } from "lucide-react";
+import {
+  MoreVertical,
+  CheckCheck,
+  X,
+} from "lucide-react";
 import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
 
 export default function ChatWindow({
   selectedChat,
   onChatDeleted,
+  onCloseChat,
   isTyping,
 }) {
   const [messages, setMessages] = useState([]);
@@ -68,6 +73,28 @@ export default function ChatWindow({
   useEffect(() => {
     scrollToBottom();
   }, [messages, isTyping]);
+
+  useEffect(() => {
+    if (!selectedChat) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        onCloseChat();
+      }
+    };
+
+    window.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
+    };
+  }, [selectedChat, onCloseChat]);
 
   useEffect(() => {
     if (!selectedChat) return;
@@ -182,11 +209,11 @@ export default function ChatWindow({
   return (
     <>
       <div className="flex-1 flex flex-col bg-black">
-        <div
-          onClick={() => setOpenContact(true)}
-          className="h-20 px-6 border-b border-white/10 flex items-center cursor-pointer hover:bg-white/5"
-        >
-          <div>
+        <div className="h-20 px-6 border-b border-white/10 flex items-center justify-between">
+          <div
+            onClick={() => setOpenContact(true)}
+            className="cursor-pointer hover:opacity-80"
+          >
             <h2 className="font-semibold text-lg text-white">
               {selectedChat.otherUserName}
             </h2>
@@ -195,6 +222,17 @@ export default function ChatWindow({
               {selectedChat.otherUserMobile}
             </p>
           </div>
+
+          <button
+            onClick={onCloseChat}
+            className="p-2 rounded-full hover:bg-white/10 transition"
+            title="Close chat (Esc)"
+          >
+            <X
+              size={20}
+              className="text-white"
+            />
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">

@@ -134,6 +134,7 @@ export default function ChatHome({ onLogout }) {
       <ChatWindow
         selectedChat={selectedChat}
         onChatDeleted={handleChatDeleted}
+        onCloseChat={() => setSelectedChat(null)}
         isTyping={
           selectedChat
             ? typingMap[selectedChat.chatId]

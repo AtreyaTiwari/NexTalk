@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import api from "../api/axios";
 import MessageInput from "./MessageInput";
 import ContactInfoModal from "./ContactInfoModal";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, CheckCheck } from "lucide-react";
 import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
 
@@ -13,18 +13,18 @@ export default function ChatWindow({
 }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [openContact, setOpenContact] =
-    useState(false);
-  const [activeMenu, setActiveMenu] =
-    useState(null);
+  const [openContact, setOpenContact] = useState(false);
+  const [activeMenu, setActiveMenu] = useState(null);
 
   const bottomRef = useRef(null);
   const stompClientRef = useRef(null);
 
   const scrollToBottom = () => {
-    bottomRef.current?.scrollIntoView({
-      behavior: "smooth",
-    });
+    setTimeout(() => {
+      bottomRef.current?.scrollIntoView({
+        behavior: "smooth",
+      });
+    }, 50);
   };
 
   const formatTime = (dateTime) => {
@@ -32,6 +32,14 @@ export default function ChatWindow({
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const markChatSeen = async (chatId) => {
+    try {
+      await api.post(`/chat/${chatId}/seen`);
+    } catch (error) {
+      console.error("Seen update failed", error);
+    }
   };
 
   const fetchMessages = async () => {
@@ -43,12 +51,11 @@ export default function ChatWindow({
       const response = await api.get(
         `/chat/${selectedChat.chatId}/messages`
       );
+
       setMessages(response.data);
+      await markChatSeen(selectedChat.chatId);
     } catch (error) {
-      console.error(
-        "Failed to load messages",
-        error
-      );
+      console.error("Failed to load messages", error);
     } finally {
       setLoading(false);
     }
@@ -75,20 +82,39 @@ export default function ChatWindow({
         client.subscribe(
           `/topic/chat/${selectedChat.chatId}`,
           (message) => {
-            const newMessage = JSON.parse(
-              message.body
-            );
+            const newMessage = JSON.parse(message.body);
 
             setMessages((prev) => {
               const exists = prev.some(
-                (msg) =>
-                  msg.id === newMessage.id
+                (msg) => msg.id === newMessage.id
               );
 
               if (exists) return prev;
 
               return [...prev, newMessage];
             });
+
+            const isFromOtherUser =
+              newMessage.senderName ===
+              selectedChat.otherUserName;
+
+            if (isFromOtherUser) {
+              markChatSeen(selectedChat.chatId);
+            }
+          }
+        );
+
+        client.subscribe(
+          `/topic/chat/${selectedChat.chatId}/seen`,
+          async () => {
+            try {
+              const response = await api.get(
+                `/chat/${selectedChat.chatId}/messages`
+              );
+              setMessages(response.data);
+            } catch (error) {
+              console.error(error);
+            }
           }
         );
       },
@@ -106,9 +132,7 @@ export default function ChatWindow({
 
   const handleMessageSent = () => {};
 
-  const handleDeleteForMe = async (
-    messageId
-  ) => {
+  const handleDeleteForMe = async (messageId) => {
     try {
       await api.delete(
         `/chat/message/${messageId}/me`
@@ -132,6 +156,19 @@ export default function ChatWindow({
     } catch (error) {
       console.error(error);
     }
+  };
+
+  const renderStatus = (msg) => {
+    return (
+      <CheckCheck
+        size={14}
+        className={
+          msg.seen
+            ? "text-blue-400"
+            : "text-gray-500"
+        }
+      />
+    );
   };
 
   if (!selectedChat) {
@@ -191,8 +228,7 @@ export default function ChatWindow({
                           <button
                             onClick={() =>
                               setActiveMenu(
-                                activeMenu ===
-                                  msg.id
+                                activeMenu === msg.id
                                   ? null
                                   : msg.id
                               )
@@ -214,25 +250,29 @@ export default function ChatWindow({
                             {msg.content}
                           </div>
 
-                          <p
-                            className={`text-[11px] mt-1 text-gray-500 ${
+                          <div
+                            className={`flex items-center gap-1 text-[11px] mt-1 text-gray-500 ${
                               isMe
-                                ? "text-right"
-                                : "text-left"
+                                ? "justify-end"
+                                : "justify-start"
                             }`}
                           >
-                            {formatTime(
-                              msg.createdAt
-                            )}
-                          </p>
+                            <span>
+                              {formatTime(
+                                msg.createdAt
+                              )}
+                            </span>
+
+                            {isMe &&
+                              renderStatus(msg)}
+                          </div>
                         </div>
 
                         {isMe && (
                           <button
                             onClick={() =>
                               setActiveMenu(
-                                activeMenu ===
-                                  msg.id
+                                activeMenu === msg.id
                                   ? null
                                   : msg.id
                               )
@@ -245,7 +285,13 @@ export default function ChatWindow({
                       </div>
 
                       {activeMenu === msg.id && (
-                        <div className={`absolute top-8 z-20 w-44 rounded-2xl border border-white/10 bg-[#111] shadow-xl overflow-hidden ${isMe ? "right-0" : "left-0"}`}>
+                        <div
+                          className={`absolute top-8 z-20 w-44 rounded-2xl border border-white/10 bg-[#111] shadow-xl overflow-hidden ${
+                            isMe
+                              ? "right-0"
+                              : "left-0"
+                          }`}
+                        >
                           <button
                             onClick={() =>
                               handleDeleteForMe(

@@ -85,6 +85,8 @@ public class ChatController {
                 .chatId(message.getChat().getId())
                 .senderId(message.getSender().getId())
                 .senderName(message.getSender().getName())
+                .delivered(true)
+                .seen(false)
                 .build();
 
         messagingTemplate.convertAndSend(
@@ -142,12 +144,32 @@ public class ChatController {
 
         chatService.deleteMessageForEveryone(currentUser.getId(), messageId);
     }
+
     @PostMapping("/typing")
     public void typing(@RequestBody TypingMessage request) {
 
         messagingTemplate.convertAndSend(
                 "/topic/chat/" + request.getChatId() + "/typing",
                 request
+        );
+    }
+
+    @PostMapping("/{chatId}/seen")
+    public void markChatSeen(@PathVariable Long chatId) {
+
+        String mobile = currentUserUtil.getCurrentUserMobile();
+
+        User currentUser = userRepository.findByMobile(mobile)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        chatService.markChatAsSeen(
+                currentUser.getId(),
+                chatId
+        );
+
+        messagingTemplate.convertAndSend(
+                "/topic/chat/" + chatId + "/seen",
+                "seen"
         );
     }
 }

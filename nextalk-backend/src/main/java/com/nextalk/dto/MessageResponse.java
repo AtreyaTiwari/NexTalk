@@ -17,4 +17,7 @@ public class MessageResponse {
 
     private Long senderId;
     private String senderName;
+
+    private boolean delivered;
+    private boolean seen;
 }

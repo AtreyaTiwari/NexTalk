@@ -5,6 +5,7 @@ import com.nextalk.dto.MessageListResponse;
 import com.nextalk.entity.*;
 import com.nextalk.repository.ChatMemberRepository;
 import com.nextalk.repository.ChatRepository;
+import com.nextalk.repository.MessageReceiptRepository;
 import com.nextalk.repository.MessageRepository;
 import com.nextalk.repository.MessageVisibilityRepository;
 import com.nextalk.repository.UserRepository;
@@ -12,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -23,6 +26,7 @@ public class ChatService {
     private final UserRepository userRepository;
     private final MessageRepository messageRepository;
     private final MessageVisibilityRepository messageVisibilityRepository;
+    private final MessageReceiptRepository messageReceiptRepository;
 
     @Transactional
     public Chat createPrivateChat(Long user1Id, Long user2Id) {
@@ -37,7 +41,8 @@ public class ChatService {
         User user2 = userRepository.findById(user2Id)
                 .orElseThrow(() -> new RuntimeException("User2 not found"));
 
-        List<ChatMember> user1Chats = chatMemberRepository.findByUserId(user1Id);
+        List<ChatMember> user1Chats =
+                chatMemberRepository.findByUserId(user1Id);
 
         for (ChatMember cm : user1Chats) {
 
@@ -47,7 +52,8 @@ public class ChatService {
 
             if (chat.getChatType() != ChatType.PRIVATE) continue;
 
-            List<ChatMember> members = chatMemberRepository.findByChatId(chat.getId());
+            List<ChatMember> members =
+                    chatMemberRepository.findByChatId(chat.getId());
 
             if (members.size() != 2) continue;
 
@@ -90,7 +96,8 @@ public class ChatService {
 
     public List<ChatListResponse> getUserChats(Long userId) {
 
-        List<ChatMember> chatMembers = chatMemberRepository.findByUserId(userId);
+        List<ChatMember> chatMembers =
+                chatMemberRepository.findByUserId(userId);
 
         return chatMembers.stream()
                 .filter(cm -> !cm.isDeleted())
@@ -98,9 +105,12 @@ public class ChatService {
 
                     Chat chat = cm.getChat();
 
-                    if (chat.getChatType() != ChatType.PRIVATE) return null;
+                    if (chat.getChatType() != ChatType.PRIVATE) {
+                        return null;
+                    }
 
-                    List<ChatMember> members = chatMemberRepository.findByChatId(chat.getId());
+                    List<ChatMember> members =
+                            chatMemberRepository.findByChatId(chat.getId());
 
                     ChatMember otherMember = members.stream()
                             .filter(m ->
@@ -132,7 +142,8 @@ public class ChatService {
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new RuntimeException("Chat not found"));
 
-        List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
+        List<ChatMember> members =
+                chatMemberRepository.findByChatId(chatId);
 
         boolean isMember = members.stream()
                 .anyMatch(m ->
@@ -150,12 +161,36 @@ public class ChatService {
                 .content(content)
                 .build();
 
-        return messageRepository.save(message);
+        message = messageRepository.save(message);
+
+        List<MessageReceipt> receipts = new ArrayList<>();
+
+        for (ChatMember member : members) {
+
+            if (member.isDeleted()) continue;
+
+            if (member.getUser().getId().equals(userId)) continue;
+
+            receipts.add(
+                    MessageReceipt.builder()
+                            .message(message)
+                            .user(member.getUser())
+                            .deliveredAt(LocalDateTime.now())
+                            .build()
+            );
+        }
+
+        if (!receipts.isEmpty()) {
+            messageReceiptRepository.saveAll(receipts);
+        }
+
+        return message;
     }
 
     public List<MessageListResponse> getMessages(Long userId, Long chatId) {
 
-        List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
+        List<ChatMember> members =
+                chatMemberRepository.findByChatId(chatId);
 
         boolean isMember = members.stream()
                 .anyMatch(m ->
@@ -167,24 +202,72 @@ public class ChatService {
             throw new RuntimeException("User not part of this chat");
         }
 
-        List<Message> messages = messageRepository.findByChatIdOrderByCreatedAtAsc(chatId);
+        List<Message> messages =
+                messageRepository.findByChatIdOrderByCreatedAtAsc(chatId);
 
         return messages.stream()
                 .filter(msg ->
                         !messageVisibilityRepository
-                                .existsByMessageIdAndUserId(msg.getId(), userId)
+                                .existsByMessageIdAndUserId(
+                                        msg.getId(), userId
+                                )
                 )
-                .map(msg -> MessageListResponse.builder()
-                        .id(msg.getId())
-                        .content(
-                                msg.getDeleteType() == DeleteType.EVERYONE
-                                        ? "This message was deleted"
-                                        : msg.getContent()
-                        )
-                        .createdAt(msg.getCreatedAt())
-                        .senderId(msg.getSender().getId())
-                        .senderName(msg.getSender().getName())
-                        .build())
+                .map(msg -> {
+
+                    boolean delivered = false;
+                    boolean seen = false;
+
+                    if (msg.getSender().getId().equals(userId)) {
+
+                        List<ChatMember> otherMembers = members.stream()
+                                .filter(m ->
+                                        !m.getUser().getId().equals(userId) &&
+                                                !m.isDeleted()
+                                )
+                                .toList();
+
+                        delivered = !otherMembers.isEmpty();
+                        seen = !otherMembers.isEmpty();
+
+                        for (ChatMember member : otherMembers) {
+
+                            var receiptOpt =
+                                    messageReceiptRepository
+                                            .findByMessageIdAndUserId(
+                                                    msg.getId(),
+                                                    member.getUser().getId()
+                                            );
+
+                            if (receiptOpt.isEmpty()) {
+                                delivered = false;
+                                seen = false;
+                                break;
+                            }
+
+                            if (receiptOpt.get().getDeliveredAt() == null) {
+                                delivered = false;
+                            }
+
+                            if (receiptOpt.get().getSeenAt() == null) {
+                                seen = false;
+                            }
+                        }
+                    }
+
+                    return MessageListResponse.builder()
+                            .id(msg.getId())
+                            .content(
+                                    msg.getDeleteType() == DeleteType.EVERYONE
+                                            ? "This message was deleted"
+                                            : msg.getContent()
+                            )
+                            .createdAt(msg.getCreatedAt())
+                            .senderId(msg.getSender().getId())
+                            .senderName(msg.getSender().getName())
+                            .delivered(delivered)
+                            .seen(seen)
+                            .build();
+                })
                 .toList();
     }
 
@@ -236,5 +319,26 @@ public class ChatService {
         message.setDeleteType(DeleteType.EVERYONE);
 
         messageRepository.save(message);
+    }
+
+    @Transactional
+    public void markChatAsSeen(Long userId, Long chatId) {
+
+        List<MessageReceipt> receipts =
+                messageReceiptRepository
+                        .findByUserIdAndMessageChatIdAndSeenAtIsNull(
+                                userId,
+                                chatId
+                        );
+
+        if (receipts.isEmpty()) return;
+
+        LocalDateTime now = LocalDateTime.now();
+
+        for (MessageReceipt receipt : receipts) {
+            receipt.setSeenAt(now);
+        }
+
+        messageReceiptRepository.saveAll(receipts);
     }
 }

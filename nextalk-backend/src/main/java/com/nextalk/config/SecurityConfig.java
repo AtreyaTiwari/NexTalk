@@ -62,7 +62,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(
-                List.of("*")
+                List.of("http://localhost:5173","https://nex-talk-psi.vercel.app")
         );
 
         configuration.setAllowedMethods(

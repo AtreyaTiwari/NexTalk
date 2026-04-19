@@ -101,7 +101,9 @@ export default function ChatWindow({
 
     const client = new Client({
       webSocketFactory: () =>
-        new SockJS(`${import.meta.env.VITE_API_URL}/ws`),
+        new SockJS(
+          `${import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL}/ws`
+        ),
 
       reconnectDelay: 5000,
 

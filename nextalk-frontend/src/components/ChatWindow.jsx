@@ -21,14 +21,16 @@ export default function ChatWindow({
   const [openContact, setOpenContact] = useState(false);
   const [activeMenu, setActiveMenu] = useState(null);
 
+  const messageContainerRef = useRef(null);
   const bottomRef = useRef(null);
   const stompClientRef = useRef(null);
 
   const scrollToBottom = () => {
     setTimeout(() => {
-      bottomRef.current?.scrollIntoView({
-        behavior: "smooth",
-      });
+      const box = messageContainerRef.current;
+      if (box) {
+        box.scrollTop = box.scrollHeight;
+      }
     }, 50);
   };
 
@@ -241,7 +243,10 @@ export default function ChatWindow({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div
+          ref={messageContainerRef}
+          className="flex-1 overflow-y-auto p-4 space-y-3"
+        >
           {loading ? (
             <p className="text-gray-400 text-sm">
               Loading...

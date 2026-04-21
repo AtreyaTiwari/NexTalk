@@ -43,7 +43,9 @@ export default function ChatHome({ onLogout }) {
 
     const client = new Client({
       webSocketFactory: () =>
-        new SockJS("http://localhost:8080/ws"),
+        new SockJS(
+          `${import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL}/ws`
+        ),
 
       reconnectDelay: 5000,
 

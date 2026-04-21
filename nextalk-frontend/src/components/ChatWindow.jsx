@@ -71,8 +71,12 @@ export default function ChatWindow({
   }, [selectedChat]);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping]);
+    const timer = setTimeout(() => {
+      scrollToBottom();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [messages.length, isTyping, selectedChat]);
 
   useEffect(() => {
     if (!selectedChat) return;

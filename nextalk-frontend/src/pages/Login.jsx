@@ -9,37 +9,6 @@ export default function Login({ switchToRegister, onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-
-    setLoading(true);
-    setError("");
-
-    try {
-      alert(
-        "mobile = " + JSON.stringify(mobile) +
-        "\npassword = " + JSON.stringify(password)
-      );
-
-      const response = await api.post("/auth/login", {
-        mobile,
-        password,
-      });
-
-      const token = response.data;
-
-      localStorage.setItem("token", token);
-      onLoginSuccess();
-
-      console.log("Login Success");
-      console.log(token);
-
-    } catch (err) {
-      setError("Invalid mobile or password");
-    } finally {
-      setLoading(false);
-    }
-  };
   // const handleLogin = async (e) => {
   //   e.preventDefault();
 
@@ -47,6 +16,11 @@ export default function Login({ switchToRegister, onLoginSuccess }) {
   //   setError("");
 
   //   try {
+  //     alert(
+  //       "mobile = " + JSON.stringify(mobile) +
+  //       "\npassword = " + JSON.stringify(password)
+  //     );
+
   //     const response = await api.post("/auth/login", {
   //       mobile,
   //       password,
@@ -66,6 +40,32 @@ export default function Login({ switchToRegister, onLoginSuccess }) {
   //     setLoading(false);
   //   }
   // };
+  const handleLogin = async (e) => {
+    e.preventDefault();
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await api.post("/auth/login", {
+        mobile,
+        password,
+      });
+
+      const token = response.data;
+
+      localStorage.setItem("token", token);
+      onLoginSuccess();
+
+      console.log("Login Success");
+      console.log(token);
+
+    } catch (err) {
+      setError("Invalid mobile or password");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="relative h-screen flex items-center justify-center overflow-hidden">

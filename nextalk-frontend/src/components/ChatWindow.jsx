@@ -22,13 +22,14 @@ export default function ChatWindow({
   const [activeMenu, setActiveMenu] = useState(null);
 
   const messageContainerRef = useRef(null);
+  const bottomRef = useRef(null);
   const stompClientRef = useRef(null);
 
   const scrollToBottom = () => {
-    const box = messageContainerRef.current;
-    if (box) {
-      box.scrollTop = box.scrollHeight;
-    }
+    bottomRef.current?.scrollIntoView({
+      behavior: "auto",
+      block: "end",
+    });
   };
 
   const formatTime = (dateTime) => {
@@ -206,8 +207,8 @@ export default function ChatWindow({
 
   return (
     <>
-      <div className="flex-1 flex flex-col bg-black">
-        <div className="h-20 px-6 border-b border-white/10 flex items-center justify-between">
+      <div className="flex-1 flex flex-col bg-black min-h-0">
+        <div className="h-20 px-6 border-b border-white/10 flex items-center justify-between shrink-0">
           <div
             onClick={() => setOpenContact(true)}
             className="cursor-pointer hover:opacity-80"
@@ -235,7 +236,7 @@ export default function ChatWindow({
 
         <div
           ref={messageContainerRef}
-          className="flex-1 overflow-y-auto p-4 space-y-3"
+          className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3"
         >
           {loading ? (
             <p className="text-gray-400 text-sm">
@@ -370,14 +371,18 @@ export default function ChatWindow({
                   </div>
                 </div>
               )}
+
+              <div ref={bottomRef} />
             </>
           )}
         </div>
 
-        <MessageInput
-          chatId={selectedChat.chatId}
-          onMessageSent={handleMessageSent}
-        />
+        <div className="shrink-0">
+          <MessageInput
+            chatId={selectedChat.chatId}
+            onMessageSent={handleMessageSent}
+          />
+        </div>
       </div>
 
       <ContactInfoModal

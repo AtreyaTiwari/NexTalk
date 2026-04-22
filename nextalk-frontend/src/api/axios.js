@@ -12,12 +12,16 @@ const api = axios.create({
   },
 });
 
-// Auto attach token
+// Auto attach token (skip login/register)
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
 
-    if (token) {
+    const isAuthRoute =
+      config.url?.includes("/auth/login") ||
+      config.url?.includes("/auth/register");
+
+    if (token && !isAuthRoute) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 

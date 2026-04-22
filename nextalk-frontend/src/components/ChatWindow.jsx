@@ -21,14 +21,15 @@ export default function ChatWindow({
   const [openContact, setOpenContact] = useState(false);
   const [activeMenu, setActiveMenu] = useState(null);
 
-  const messageContainerRef = useRef(null);
   const bottomRef = useRef(null);
   const stompClientRef = useRef(null);
 
   const scrollToBottom = () => {
-    bottomRef.current?.scrollIntoView({
-      behavior: "auto",
-      block: "end",
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({
+        behavior: "auto",
+        block: "end",
+      });
     });
   };
 
@@ -72,25 +73,21 @@ export default function ChatWindow({
 
   useLayoutEffect(() => {
     scrollToBottom();
-  }, [messages, isTyping, selectedChat]);
+  }, [messages, isTyping, selectedChat, loading]);
 
   useEffect(() => {
     if (!selectedChat) return;
 
     const handleKeyDown = (e) => {
-      if (e.key === "Escape") {
-        onCloseChat();
-      }
+      if (e.key === "Escape") onCloseChat();
     };
 
     window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
+    return () =>
       window.removeEventListener(
         "keydown",
         handleKeyDown
       );
-    };
   }, [selectedChat, onCloseChat]);
 
   useEffect(() => {
@@ -116,7 +113,6 @@ export default function ChatWindow({
               );
 
               if (exists) return prev;
-
               return [...prev, newMessage];
             });
 
@@ -150,9 +146,7 @@ export default function ChatWindow({
     stompClientRef.current = client;
 
     return () => {
-      if (stompClientRef.current) {
-        stompClientRef.current.deactivate();
-      }
+      stompClientRef.current?.deactivate();
     };
   }, [selectedChat]);
 
@@ -184,18 +178,16 @@ export default function ChatWindow({
     }
   };
 
-  const renderStatus = (msg) => {
-    return (
-      <CheckCheck
-        size={14}
-        className={
-          msg.seen
-            ? "text-blue-400"
-            : "text-gray-500"
-        }
-      />
-    );
-  };
+  const renderStatus = (msg) => (
+    <CheckCheck
+      size={14}
+      className={
+        msg.seen
+          ? "text-blue-400"
+          : "text-gray-500"
+      }
+    />
+  );
 
   if (!selectedChat) {
     return (
@@ -216,7 +208,6 @@ export default function ChatWindow({
             <h2 className="font-semibold text-lg text-white">
               {selectedChat.otherUserName}
             </h2>
-
             <p className="text-sm text-gray-400">
               {selectedChat.otherUserMobile}
             </p>
@@ -225,7 +216,6 @@ export default function ChatWindow({
           <button
             onClick={onCloseChat}
             className="p-2 rounded-full hover:bg-white/10 transition"
-            title="Close chat (Esc)"
           >
             <X
               size={20}
@@ -234,10 +224,7 @@ export default function ChatWindow({
           </button>
         </div>
 
-        <div
-          ref={messageContainerRef}
-          className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3"
-        >
+        <div className="flex-1 min-h-0 overflow-y-auto p-4">
           {loading ? (
             <p className="text-gray-400 text-sm">
               Loading...
@@ -247,7 +234,7 @@ export default function ChatWindow({
               No messages yet
             </p>
           ) : (
-            <>
+            <div className="flex flex-col gap-3">
               {messages.map((msg) => {
                 const isMe =
                   msg.senderName !==
@@ -302,7 +289,6 @@ export default function ChatWindow({
                                 msg.createdAt
                               )}
                             </span>
-
                             {isMe &&
                               renderStatus(msg)}
                           </div>
@@ -373,7 +359,7 @@ export default function ChatWindow({
               )}
 
               <div ref={bottomRef} />
-            </>
+            </div>
           )}
         </div>
 

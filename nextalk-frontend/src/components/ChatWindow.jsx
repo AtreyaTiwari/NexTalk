@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import api from "../api/axios";
 import MessageInput from "./MessageInput";
 import ContactInfoModal from "./ContactInfoModal";
@@ -22,16 +22,13 @@ export default function ChatWindow({
   const [activeMenu, setActiveMenu] = useState(null);
 
   const messageContainerRef = useRef(null);
-  const bottomRef = useRef(null);
   const stompClientRef = useRef(null);
 
   const scrollToBottom = () => {
-    setTimeout(() => {
-      const box = messageContainerRef.current;
-      if (box) {
-        box.scrollTop = box.scrollHeight;
-      }
-    }, 50);
+    const box = messageContainerRef.current;
+    if (box) {
+      box.scrollTop = box.scrollHeight;
+    }
   };
 
   const formatTime = (dateTime) => {
@@ -72,13 +69,9 @@ export default function ChatWindow({
     fetchMessages();
   }, [selectedChat]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      scrollToBottom();
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [messages.length, isTyping, selectedChat]);
+  useLayoutEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping, selectedChat]);
 
   useEffect(() => {
     if (!selectedChat) return;
@@ -89,10 +82,7 @@ export default function ChatWindow({
       }
     };
 
-    window.addEventListener(
-      "keydown",
-      handleKeyDown
-    );
+    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       window.removeEventListener(
@@ -380,8 +370,6 @@ export default function ChatWindow({
                   </div>
                 </div>
               )}
-
-              <div ref={bottomRef} />
             </>
           )}
         </div>

@@ -9,37 +9,6 @@ export default function Login({ switchToRegister, onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // const handleLogin = async (e) => {
-  //   e.preventDefault();
-
-  //   setLoading(true);
-  //   setError("");
-
-  //   try {
-  //     alert(
-  //       "mobile = " + JSON.stringify(mobile) +
-  //       "\npassword = " + JSON.stringify(password)
-  //     );
-
-  //     const response = await api.post("/auth/login", {
-  //       mobile,
-  //       password,
-  //     });
-
-  //     const token = response.data;
-
-  //     localStorage.setItem("token", token);
-  //     onLoginSuccess();
-
-  //     console.log("Login Success");
-  //     console.log(token);
-
-  //   } catch (err) {
-  //     setError("Invalid mobile or password");
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
   const handleLogin = async (e) => {
     e.preventDefault();
 
@@ -61,7 +30,15 @@ export default function Login({ switchToRegister, onLoginSuccess }) {
       console.log(token);
 
     } catch (err) {
-      setError("Invalid mobile or password");
+      console.log(err);
+      console.log(err.response);
+      console.log(err.response?.data);
+
+      setError(
+        err.response?.data ||
+        err.message ||
+        "Login failed"
+      );
     } finally {
       setLoading(false);
     }
